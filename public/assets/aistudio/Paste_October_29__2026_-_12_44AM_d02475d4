@@ -1,0 +1,1065 @@
+# MASTER PROMPT — SMART GROCERY RETAIL MANAGEMENT AND PAYMENT SYSTEM
+## Complete Oracle Database, Backend, Frontend, Testing and Documentation Project
+
+### 1. Your role
+
+Act as a senior Oracle database engineer, relational database designer, SQL and PL/SQL developer, Node.js backend engineer, React frontend engineer, software tester, and technical reviewer.
+
+I am developing an academic project for the subject Database Systems.
+
+**Project title:** Smart Grocery Retail Management and Payment System
+
+**Database environment:** Oracle Database, accessed and managed using Oracle SQL*Plus.
+
+**Primary objective:** Build a complete, functional, database-driven grocery retail management application that follows the supplied ER diagram, uses a correctly designed Oracle database, and satisfies the SQL, PL/SQL, security, transaction, indexing, and testing requirements in my project report.
+
+This project is important to me. My teacher is strict about database correctness, relationships, constraints, SQL execution, and whether the practical implementation agrees with the design.
+
+Prioritize correctness, data integrity, transaction safety, and verifiable functionality over visual effects.
+
+Do not merely generate a project proposal, HTML mockup, collection of SQL examples, or frontend with hardcoded data. Implement the complete project in the available coding workspace, test what can be tested, and provide exact instructions for anything that requires my local Oracle installation.
+
+Do not claim that a feature or test works unless there is actual execution evidence.
+
+---
+
+### 2. Source files and initial inspection
+
+I will provide the following materials:
+
+- My existing project report PDF, including its requirements and examples.
+- The original ER diagram.
+- Screenshots showing the Oracle SQL*Plus environment and existing table-creation commands.
+- Any available database scripts, sample records, query outputs, and additional project details.
+
+Read the supplied files before making architectural decisions.
+
+Use this evidence carefully:
+
+1. Treat explicit teacher requirements and constraints as mandatory.
+2. Treat the original ER diagram as the intended conceptual data model.
+3. Treat actual SQL scripts and execution results as evidence of the current implementation, not automatic proof that the implementation is correct.
+4. Treat the project report as the record of the intended academic scope and existing demonstrated work.
+
+If any two sources disagree, create a discrepancy list and explain the correct resolution. Do not silently choose whichever version is easiest to implement.
+
+Preserve existing correct work wherever possible. Modify or extend the existing design only when necessary for correctness or a documented requirement.
+
+Do not replace Oracle with MySQL, PostgreSQL, SQLite, MongoDB, or browser-based storage.
+
+#### Required audit before coding
+
+First inspect and document:
+
+- Existing tables and all columns.
+- Primary keys, foreign keys, unique constraints, check constraints, and NOT NULL constraints.
+- Relationship cardinalities in the ER diagram.
+- Attributes belonging to relationships.
+- Existing DDL and DML statements.
+- Sample data and its dependencies.
+- Existing queries and their demonstrated outputs.
+- Views, stored procedures, functions, triggers, cursors, security objects, and indexes.
+- Differences between the ER diagram, SQL implementation, and report.
+- Missing functionality and proposed corrections.
+
+Produce a concise audit and a proposed final schema before developing the application.
+
+Then continue with the implementation. Do not stop after the audit or repeatedly ask for permission to implement obvious corrections.
+
+---
+
+### 3. Original database design
+
+The original report identifies these nine entities.
+
+| Entity | Purpose |
+|---|---|
+| CUSTOMER | Customer details and loyalty points |
+| CLERK | Employee details |
+| CATEGORY | Product categories |
+| PRODUCT | Product information and selling prices |
+| INVENTORY | Product stock and reorder information |
+| SALE | Sales transactions |
+| PAYMENT | Payments associated with sales |
+| SUPPLIER | Supplier information |
+| STOCK_RECEIPT | Stock received from suppliers |
+
+Preserve these entities and their existing names where practical.
+
+The original design contains the following attributes.
+
+**CUSTOMER:** CustomerID, CustomerName, CustomerEmail, CustomerPhone, LoyaltyPoints.
+
+**CLERK:** ClerkID, ClerkName, ClerkEmail, ClerkPhone, Shift.
+
+**CATEGORY:** CategoryID, CategoryName.
+
+**PRODUCT:** ProductID, ProductName, Barcode, SellingPrice, Unit, CategoryID.
+
+**INVENTORY:** InventoryID, ProductID, ReorderLevel, LastUpdated.
+
+**SALE:** SaleID, SaleDateTime, TaxAmount, OrderDiscountAmount, CustomerID, ClerkID.
+
+**PAYMENT:** PaymentID, Amount, PaymentMethod, PaymentStatus, TransactionRef, PaymentDateTime, SaleID.
+
+**SUPPLIER:** SupplierID, SupplierName, SupplierPhone, SupplierEmail.
+
+**STOCK_RECEIPT:** ReceiptID, ReceiptDate, ReceiptStatus, SupplierID.
+
+Inspect the actual DDL and retain appropriate existing constraints, defaults, and naming conventions. Do not recreate the schema from assumptions while ignoring the supplied implementation.
+
+---
+
+### 4. Resolve the ER diagram correctly
+
+This section is critical. The database must correctly implement the relationships in the provided diagram.
+
+#### 4.1 Customer and sale
+
+One customer may make multiple sales. Each sale belongs to one customer.
+
+Use SALE.CustomerID as a foreign key referencing CUSTOMER.CustomerID.
+
+#### 4.2 Clerk and sale
+
+One clerk can process multiple sales. Each sale is processed by one clerk.
+
+Use SALE.ClerkID as a foreign key referencing CLERK.ClerkID.
+
+#### 4.3 Sale and payment
+
+One sale may have multiple payment records. Each payment belongs to one sale.
+
+Use PAYMENT.SaleID as a foreign key referencing SALE.SaleID.
+
+Ensure that reports distinguish payment records from sales and do not incorrectly count a partially paid sale as fully paid.
+
+#### 4.4 Category and product
+
+One category may contain many products. Each product belongs to one category.
+
+Use PRODUCT.CategoryID as a foreign key referencing CATEGORY.CategoryID.
+
+#### 4.5 Product and inventory
+
+The ER diagram specifies a one-to-one relationship between PRODUCT and INVENTORY.
+
+Use INVENTORY.ProductID as a foreign key and enforce UNIQUE on that column. If every active product must have an inventory record, enforce that requirement through the product-creation workflow and appropriate integrity checks.
+
+#### 4.6 Supplier and stock receipt
+
+One supplier may provide multiple stock receipts. Each stock receipt belongs to one supplier.
+
+Use STOCK_RECEIPT.SupplierID as a foreign key referencing SUPPLIER.SupplierID.
+
+#### 4.7 Sale and product — missing junction table
+
+The ER diagram contains a many-to-many CONTAINS relationship with its own attributes:
+
+- QuantitySold
+- UnitPriceAtSale
+- LineDiscount
+
+Create a junction table named SALE_ITEM.
+
+It must reference SALE and PRODUCT and preserve all three relationship attributes.
+
+Choose either:
+
+- A composite primary key using SaleID and ProductID, if a product can appear only once per sale; or
+- A separate SaleItemID with suitable uniqueness constraints, if multiple lines for the same product are allowed.
+
+Document the selected rule and enforce it in the database.
+
+**Historical selling price must be preserved.** If a product's current SellingPrice changes, existing sale-item records must retain the actual price used in their original transactions.
+
+#### 4.8 Product and stock receipt — missing junction table
+
+The ER diagram contains a many-to-many INCLUDES relationship with these attributes:
+
+- QtyReceived
+- PurchaseUnitCost
+
+Create a junction table named STOCK_RECEIPT_ITEM.
+
+It must reference STOCK_RECEIPT and PRODUCT and store the quantity and purchase unit cost for each receipt line.
+
+Implement the required primary-key, foreign-key, uniqueness, and check constraints.
+
+#### 4.9 Inventory quantity
+
+The original INVENTORY entity contains ReorderLevel and LastUpdated but does not explicitly identify an on-hand quantity.
+
+Add an appropriate field such as QuantityOnHand so the application can implement stock checks and update inventory during sales and stock receipts.
+
+Document the change and update the ER diagram, data dictionary, scripts, API, and frontend.
+
+Use one authoritative source for current stock. Do not maintain competing quantities in unrelated tables or calculate one quantity in the frontend while storing another in Oracle.
+
+#### 4.10 Derived attributes in the ER diagram
+
+The dashed ovals for Subtotal, TotalAmount, and TotalCost appear to represent derived attributes.
+
+Treat them as derived values unless an explicitly documented requirement justifies storing a historical snapshot.
+
+Calculate these values from persisted sale-item, discount, tax, and stock-receipt details. If any totals are stored, explain why, define how they are recalculated, and provide reconciliation checks to prevent inconsistency.
+
+#### 4.11 Final table count
+
+The original report lists nine tables, but a relational implementation of the two many-to-many relationships requires SALE_ITEM and STOCK_RECEIPT_ITEM.
+
+Therefore, the corrected core design normally contains **11 tables**, including the original nine entities and the two junction tables.
+
+Do not claim that the original nine-table implementation fully represents the ER diagram if those junction tables are missing.
+
+If additional tables are needed for application authentication or audit logging, justify them separately. Document every design change, including the reason and its effect on the original ER diagram.
+
+---
+
+### 5. Technology stack and architecture
+
+Use the following stack unless an already functioning supplied implementation provides a strong reason to retain an equivalent technology.
+
+**Frontend**
+- React.js
+- Vite
+- JavaScript or TypeScript, used consistently
+- Responsive CSS or Tailwind CSS
+
+**Backend**
+- Node.js
+- Express.js
+- Oracle `node-oracledb` driver
+
+**Database**
+- The Oracle database installation available in my environment.
+- Oracle SQL*Plus for database setup, SQL execution, PL/SQL demonstrations, verification, and output capture.
+
+First inspect the supplied environment information. The SQL*Plus screenshots show Oracle AI Database 23ai Free, but verify the actual installation and connection before selecting specific driver settings or features.
+
+Do not upgrade the database or require unnecessary software just to accommodate an avoidable implementation choice.
+
+Use the following architecture:
+
+React frontend → Express REST API → Oracle driver → Oracle Database.
+
+The frontend must not connect directly to Oracle. All database operations must pass through the backend.
+
+Provide an architecture diagram and a brief explanation of the responsibilities of each layer.
+
+---
+
+### 6. Database schema, constraints, and naming
+
+Implement the schema using valid Oracle SQL.
+
+Use suitable Oracle data types, including NUMBER, NUMBER(p,s), VARCHAR2, DATE, and TIMESTAMP where appropriate.
+
+Maintain consistent data types and names across the schema, backend, and frontend.
+
+Implement the following safeguards wherever appropriate:
+
+- Primary keys for entity identification.
+- Foreign keys for relationships.
+- NOT NULL for required values.
+- UNIQUE constraints for barcodes, email addresses where the design requires uniqueness, and one-to-one inventory references.
+- CHECK constraints for permitted amounts, quantities, loyalty points, and other row-level rules.
+- DEFAULT values where justified by the actual business requirements.
+
+Examples of integrity rules:
+
+- LoyaltyPoints must not be negative.
+- SellingPrice must not be negative.
+- QuantitySold and QtyReceived must be positive.
+- QuantityOnHand and ReorderLevel must not be negative.
+- UnitPriceAtSale and PurchaseUnitCost must not be negative.
+- LineDiscount must be nonnegative and must not exceed the applicable line's gross value.
+- TaxAmount and OrderDiscountAmount must not be negative.
+- Payment amounts must be positive if refunds are not represented as negative payment records.
+- Required foreign keys, names, dates, and statuses must be valid and non-NULL.
+
+Remember that a CHECK constraint alone does not reject NULL. Combine NOT NULL with CHECK when both are required.
+
+Where a rule depends on multiple rows or multiple tables, enforce it in appropriate transactional SQL or PL/SQL logic rather than creating an invalid cross-table CHECK constraint.
+
+If Barcode is optional, allow NULL while preventing duplicate non-NULL barcodes.
+
+Choose ON DELETE behavior deliberately. Historical sales, payments, and receipts must not disappear as an accidental side effect of deleting a parent record.
+
+Explain every important constraint in the database documentation.
+
+---
+
+### 7. SQL*Plus setup and safe database scripts
+
+Create organized Oracle SQL*Plus scripts, with clear dependencies and execution instructions.
+
+Recommended structure:
+
+- `00_environment_check.sql`
+- `01_schema.sql`
+- `02_seed_data.sql`
+- `03_views.sql`
+- `04_procedures_functions.sql`
+- `05_triggers_cursors.sql`
+- `06_security.sql`
+- `07_indexes_optimization.sql`
+- `08_verification.sql`
+- `09_demo_queries.sql`
+- `tests/` for database and API testing scripts
+- `migrations/` for subsequent schema changes, if needed
+- `99_reset_database.sql` as a separate, explicitly destructive development-only script
+
+Adjust the structure as needed, but keep responsibilities clear.
+
+#### SQL*Plus correctness requirements
+
+- Use valid Oracle SQL and PL/SQL syntax.
+- Use `/` correctly to execute PL/SQL blocks.
+- Use SET SERVEROUTPUT ON for appropriate output.
+- Use SPOOL for reproducible execution evidence.
+- Use meaningful exception messages and inspect SQL*Plus error output.
+- Use suitable `WHENEVER SQLERROR` and `WHENEVER OSERROR` behavior in installation or verification scripts.
+- Account for SQL*Plus substitution variables where input contains ampersands.
+- Verify that all dependencies are created before they are referenced.
+- Verify that every procedure, function, and trigger compiles successfully.
+
+Provide a clean-install sequence and a separate migration strategy.
+
+Do not blindly rerun CREATE TABLE statements against an already populated schema. Oracle DDL can implicitly commit, so do not place schema changes inside a supposed rollback-safe business transaction.
+
+Do not execute the destructive reset script automatically. Clearly identify which commands drop tables or delete existing records.
+
+Use the installed Oracle version and actual privileges when choosing syntax.
+
+---
+
+### 8. Business rules and calculation correctness
+
+Define all calculation rules once and use them consistently in the database, PL/SQL, backend, reports, and frontend.
+
+#### 8.1 Sale calculations
+
+For each sale item:
+
+Gross line value = QuantitySold × UnitPriceAtSale
+
+Net line value = Gross line value − LineDiscount
+
+Define:
+
+Gross subtotal = sum of all gross line values.
+
+Line discount total = sum of LineDiscount.
+
+Net subtotal = Gross subtotal − Line discount total.
+
+Order payable amount = Net subtotal − OrderDiscountAmount + TaxAmount.
+
+Use appropriate Oracle numeric precision and a documented rounding rule, normally to two decimal places for monetary results.
+
+Validate every line item and ensure the total cannot become negative.
+
+Define whether tax is calculated on gross or discounted values, and implement that policy consistently. Do not invent a legal tax rate or claim tax compliance without an explicitly supplied requirement.
+
+Because the ER diagram appears to treat Subtotal and TotalAmount as derived values, calculate them from transaction details unless storing a well-defined historical snapshot is justified.
+
+#### 8.2 Sale creation transaction
+
+A sale must be processed atomically.
+
+The implementation must:
+
+1. Validate the customer and clerk.
+2. Validate product references, quantities, discounts, and prices.
+3. Lock the relevant inventory rows or use an equivalent concurrency-safe strategy.
+4. Validate sufficient stock.
+5. Create the sale and its item records.
+6. Compute and validate the monetary amounts.
+7. Update inventory exactly once.
+8. Record any payment supplied for the sale.
+9. Commit only when all required database operations succeed.
+10. Roll back on failure so the database does not retain a partial sale.
+
+Handle simultaneous checkout attempts correctly. Two users must not both purchase the last available unit.
+
+Acquire inventory locks in a consistent order where practical to reduce deadlock risk.
+
+Preserve historical sale prices rather than recalculating old sales from current product prices.
+
+#### 8.3 Payment workflow
+
+A sale may be settled through one or multiple payments, according to the defined business policy.
+
+Outstanding balance = Sale payable amount − Sum of qualifying completed payments.
+
+Define which existing payment statuses qualify as completed. Inspect the supplied procedures, triggers, and screenshots before standardizing statuses.
+
+Ensure that pending or failed payments do not incorrectly reduce the outstanding balance.
+
+Reject invalid status transitions and payment amounts exceeding any permitted balance, unless a clearly documented policy allows them.
+
+For an academic demonstration, use simulated payment processing rather than pretending that a real payment gateway is connected. Clearly state whether a payment is simulated or real.
+
+Define how payment failures, partially paid sales, cancellations, and refunds are treated. Do not use negative payment amounts as an undocumented way of representing refunds.
+
+#### 8.4 Stock receipt processing
+
+Every stock receipt must reference a supplier and contain valid product lines.
+
+Only the defined receiving workflow may increase inventory.
+
+Receiving the same receipt twice must not increase inventory twice. Use a guarded state transition and an atomic transaction so the status change and inventory update cannot become inconsistent.
+
+A failure must not leave a receipt marked as received when the corresponding inventory increase was rolled back, or vice versa.
+
+#### 8.5 Inventory management
+
+Low-stock rule:
+
+QuantityOnHand ≤ ReorderLevel.
+
+The inventory page and reports must use the same rule.
+
+Preserve inventory update timestamps and make sure normal business operations cannot create negative stock.
+
+Include reconciliation checks that compare stored stock against eligible stock-receipt and sale movements. Explain any assumptions needed for this calculation.
+
+#### 8.6 Loyalty points
+
+If loyalty points are awarded for purchases, define the earning formula and reversal policy.
+
+Prevent duplicate awards for the same sale. Do not let changes to a product's price or a repeated API request unexpectedly award the same points again.
+
+---
+
+### 9. Transaction ownership and concurrency
+
+This is a major correctness requirement.
+
+Choose one clear owner for each transaction boundary.
+
+The default design should have the backend begin the business transaction, execute the required SQL or PL/SQL operations, and explicitly commit on success or roll back on failure.
+
+PL/SQL procedures should not commit internally unless there is a clearly documented and justified reason. Avoid mixing independent transaction-control strategies.
+
+Use the Oracle driver's connection transaction methods correctly. Always release database connections, including when errors occur.
+
+Keep all operations that must succeed or fail together inside the same Oracle transaction.
+
+Demonstrate:
+
+- A successful sale.
+- A failed sale followed by rollback.
+- Successful stock-receipt processing.
+- Prevention of repeated stock receipt processing.
+- A failed operation that would otherwise leave inconsistent rows.
+- A concurrent stock-depletion test or a documented executable test procedure.
+
+Explain the role of row locks and transactional integrity in preventing overselling.
+
+---
+
+### 10. Backend and API implementation
+
+Organize the backend into maintainable modules such as:
+
+- Routes.
+- Controllers.
+- Services.
+- Database access and connection management.
+- Input validation.
+- Error handling.
+- Configuration.
+
+Create working API endpoints for:
+
+- Customers.
+- Clerks, where management operations are needed.
+- Categories.
+- Products.
+- Inventory.
+- Sales and sale items.
+- Payments.
+- Suppliers.
+- Stock receipts.
+- Dashboard metrics.
+- Reports.
+
+Use appropriate HTTP methods and status codes, with a consistent JSON response structure.
+
+Use parameterized queries and bind variables for all user-supplied values. Never create SQL statements by concatenating untrusted input.
+
+Validate requests at the API boundary and use database constraints as the final protection.
+
+Do not return internal stack traces, credentials, or sensitive database information to the client.
+
+Use environment variables for configuration, release connections reliably, and use connection pooling where appropriate.
+
+Provide an `.env.example` file containing placeholders, not actual secrets.
+
+The application must use a dedicated database account with restricted permissions. **Do not use SYSTEM or SYS as the web application's database user.**
+
+Inspect the connected Oracle service, PDB, user privileges, and installation before deciding which accounts and grants are appropriate. Do not assume that common-user naming conventions are required in every environment.
+
+---
+
+### 11. Frontend implementation
+
+Build a professional, responsive application appropriate for a database project demonstration.
+
+Design should be clear and practical. Prioritize working data operations, input validation, readable tables, and correct outputs over unnecessary animation.
+
+#### 11.1 Dashboard
+
+Show live metrics derived from Oracle-backed API queries, such as:
+
+- Sales for a selected period.
+- Completed payment amount.
+- Outstanding balance.
+- Product count.
+- Low-stock product count.
+- Recent sales.
+- Best-selling products.
+- Recent stock receipts.
+
+Define the calculation and date range for each metric. Do not hardcode dashboard results.
+
+#### 11.2 Customer management
+
+Provide list, search, create, edit, and suitable deletion or deactivation actions.
+
+Show customer details, purchase history, and loyalty points where applicable.
+
+#### 11.3 Product and category management
+
+Provide category and product forms, price and barcode validation, search, filtering, and sorting.
+
+Display available quantity and reorder level. Prevent operations that would corrupt historical records or violate foreign keys.
+
+#### 11.4 Sales and checkout
+
+Build a functional point-of-sale screen with:
+
+- Customer and clerk selection.
+- Product search.
+- Shopping cart.
+- Quantity changes.
+- Stored price-at-sale.
+- Line discounts and order discount.
+- Tax and final payable amount.
+- Payment recording.
+- Final receipt.
+
+Use backend-calculated totals as authoritative. The browser may show a preview, but the server must independently validate and calculate the final values.
+
+Display useful error messages if stock becomes insufficient during checkout.
+
+#### 11.5 Payment management
+
+Display payment history, amounts, methods, references, timestamps, and statuses.
+
+Support only valid status changes and permitted payment actions.
+
+#### 11.6 Inventory management
+
+Display actual stock, reorder levels, low-stock products, and last-updated timestamps.
+
+#### 11.7 Supplier and stock receipts
+
+Support supplier management, stock receipt creation, receipt item entry, and receiving workflow.
+
+Display receipt status and received quantities. Repeated submission must not duplicate stock.
+
+#### 11.8 Reports
+
+Provide meaningful database-backed reports covering:
+
+- Daily and monthly sales.
+- Product sales quantity.
+- Top-selling products.
+- Category-wise sales.
+- Sales by clerk.
+- Sales by customer.
+- Completed payments and outstanding balances.
+- Payment-method summaries.
+- Low-stock products.
+- Supplier and stock-receipt summaries.
+
+Ensure the frontend and SQL calculations agree. Reports should display a proper empty state when no records match.
+
+#### 11.9 Frontend interaction requirements
+
+All visible buttons, forms, filters, tables, and navigation options must work.
+
+Do not include decorative buttons that have no behavior. Do not use localStorage as the primary database or as a substitute for Oracle.
+
+After restarting the application, persisted database records must remain available.
+
+---
+
+### 12. Required SQL query coverage from the project report
+
+Implement actual queries against the final schema and use meaningful sample data.
+
+#### A. Basic SQL — at least 6 queries
+
+Cover:
+
+- SELECT, WHERE, ORDER BY.
+- DISTINCT.
+- BETWEEN.
+- IN.
+- LIKE.
+- IS NULL.
+
+#### B. Aggregate SQL — at least 5 queries
+
+Cover COUNT, SUM, AVG, MIN, MAX, GROUP BY, and HAVING.
+
+Include a clear example explaining WHERE versus HAVING.
+
+#### C. Joins — at least 6 queries
+
+Cover:
+
+- INNER JOIN.
+- LEFT OUTER JOIN.
+- RIGHT OUTER JOIN.
+- FULL OUTER JOIN.
+- SELF JOIN.
+- Meaningful CROSS JOIN.
+
+#### D. Subqueries — at least 6, with sufficient coverage of all specified types
+
+Include scalar, single-row, multi-row, correlated, IN, ANY, ALL, EXISTS, NOT EXISTS, and NOT IN.
+
+Explain why NOT IN can behave unexpectedly if the subquery returns NULL, and provide a suitable alternative where appropriate.
+
+#### E. Set operations — at least 4 queries
+
+Include UNION, UNION ALL, INTERSECT, and MINUS.
+
+Use valid Oracle syntax.
+
+#### F. Advanced functions — at least 6 examples
+
+Cover CASE, COALESCE, NULLIF, date functions, string functions, and numeric functions.
+
+#### G. Analytic functions — at least 2 examples
+
+Include RANK, ROW_NUMBER, running totals, and LAG or LEAD.
+
+#### H. Complex business queries — at least 10
+
+Each query must answer a meaningful grocery-retail question and use multiple tables, nested logic, grouping, or analytical SQL as appropriate.
+
+For important queries, document:
+
+- Query ID.
+- Business question.
+- SQL statement.
+- Explanation.
+- Expected behavior.
+- Actual output when executed.
+
+Ensure all SQL uses the final schema and current column names.
+
+Do not fabricate expected rows or report sample results as verified results when the queries have not actually been run.
+
+---
+
+### 13. Required views, procedures, functions, triggers, and cursors
+
+The supplied report includes advanced database-object requirements. Implement the following unless the teacher's explicit requirements say otherwise.
+
+#### 13.1 Views — at least 2
+
+Examples:
+
+- Sale details with customer and clerk information.
+- Customer payment summary.
+- Product inventory status.
+
+Use correct joins and aggregation. Avoid duplicated totals caused by joins across multiple one-to-many relationships.
+
+#### 13.2 Stored procedures — at least 2
+
+Create useful procedures such as:
+
+- Safe sale processing.
+- Stock receipt processing or permitted payment-status updates.
+
+Validate inputs and raise meaningful application errors.
+
+Procedures must work with the chosen transaction owner and must not silently commit transactions that the backend expects to manage.
+
+#### 13.3 User-defined functions — at least 2
+
+Examples:
+
+- Calculate the completed payment total for a customer.
+- Classify products using the price thresholds documented in the original report, if those rules remain applicable.
+
+Handle missing records and NULL values correctly.
+
+#### 13.4 Triggers — at least 2
+
+Examples:
+
+- Refresh the inventory update timestamp.
+- Validate a payment-status rule where database-level enforcement provides a genuine benefit.
+
+Test each trigger with valid and invalid input.
+
+Do not duplicate the same business operation in a trigger and a stored procedure. Avoid recursive triggers and hidden transaction effects.
+
+#### 13.5 Explicit cursors — at least 2
+
+Include two meaningful PL/SQL cursor demonstrations, such as:
+
+- Customer sales counts.
+- Stock receipts with supplier names and statuses.
+
+Execute the blocks with appropriate DBMS_OUTPUT settings and capture their actual output.
+
+Explain that cursors demonstrate row-by-row processing, while set-based SQL is generally preferable for ordinary bulk operations.
+
+---
+
+### 14. Database security
+
+Implement and demonstrate suitable Oracle roles and users, following the project report.
+
+Include three appropriately scoped roles, such as:
+
+- Reader.
+- Cashier.
+- Manager.
+
+Create and assign users as permitted by the actual Oracle installation and assessment requirements.
+
+Demonstrate:
+
+- Role creation.
+- User creation and role assignment.
+- GRANT.
+- REVOKE.
+- Allowed operations.
+- An unauthorized operation that fails.
+- Least-privilege access.
+
+Do not grant unnecessary administrator privileges to application users.
+
+If authentication is included in the web application, use secure password hashing, authorization checks, and safe token or session handling. Do not store plaintext passwords.
+
+Clearly distinguish database roles from application login roles.
+
+---
+
+### 15. Indexing and query optimization
+
+Choose indexes based on actual access patterns and query requirements.
+
+Examine:
+
+- Primary and unique key indexes.
+- Foreign-key joins.
+- Common product and barcode searches.
+- Sale-date filters.
+- Frequent reporting filters.
+
+Do not add indexes without a reason.
+
+Use EXPLAIN PLAN and suitable Oracle plan-display tools to compare at least one query before and after the intended optimization.
+
+Capture the real execution plans when possible. Explain the access path, estimated cost, and any observed differences.
+
+Do not claim faster execution unless actual evidence supports that conclusion. An index may not be used for small tables or low-selectivity queries.
+
+Document the write-performance and storage costs of additional indexes.
+
+---
+
+### 16. Test data requirements
+
+Create a consistent, reproducible seed dataset with sufficient variety for meaningful tests and query demonstrations.
+
+It should include:
+
+- Multiple customers and clerks.
+- Multiple product categories and products.
+- Products in different price bands.
+- Several sales containing multiple products.
+- Different sale quantities and discounts.
+- Multiple payments associated with at least one sale.
+- Relevant payment statuses.
+- Multiple suppliers.
+- Stock receipts containing multiple product lines.
+- Inventory at normal, low, and zero stock levels.
+- NULL values where the schema permits them.
+
+All inserted child records must reference valid parent records.
+
+Ensure the sample dataset supports aggregate queries, analytic functions, joins, subqueries, and meaningful dashboard reports.
+
+Use fixed, documented sample values where deterministic expected results are required.
+
+Do not insert unrelated random data that makes verification difficult.
+
+---
+
+### 17. Testing and acceptance criteria
+
+Create at least 20 distinct tests, including database-level, API-level, and workflow tests.
+
+Cover all of the following:
+
+1. Valid customer creation.
+2. Required-field validation.
+3. Duplicate primary-key or unique-value rejection.
+4. Invalid customer foreign-key rejection.
+5. Invalid product foreign-key rejection.
+6. Product and inventory creation.
+7. One-product sale.
+8. Multi-product sale.
+9. Insufficient-stock rejection.
+10. Correct line and order calculations.
+11. Preservation of historical selling price.
+12. Successful payment and outstanding-balance calculation.
+13. Rejection of invalid payment status.
+14. Multiple partial payments.
+15. Stock receipt that increases inventory correctly.
+16. Prevention of double receipt processing.
+17. Rollback after a sale failure.
+18. Correct low-stock reporting.
+19. Enforcement of database role permissions.
+20. SQL injection protection through parameterized inputs.
+21. Invalid order-discount rejection.
+22. Prevention of negative quantities and amounts.
+23. Consistency of dashboard and detailed reports.
+24. Concurrent attempts to purchase the last available unit.
+
+Add further tests when required by the actual implementation.
+
+For every test, record:
+
+- Test ID and purpose.
+- Preconditions.
+- Input or SQL statement.
+- Expected result.
+- Actual result.
+- Pass/fail status.
+- Evidence or execution notes.
+
+Run the tests in a controlled order and use repeatable test data.
+
+Clearly mark a test as NOT RUN or UNVERIFIED when the local Oracle database or another required environment is unavailable.
+
+Do not create fake screenshots, fake SQL*Plus outputs, fictional execution timings, or invented pass results.
+
+---
+
+### 18. Secure application configuration
+
+Create an `.env.example` file with placeholders for relevant settings such as:
+
+- Oracle user.
+- Oracle password.
+- Oracle connect string.
+- API port.
+- Frontend API base URL.
+- Any other required configuration values.
+
+Never put actual database passwords or other secrets into source code, frontend variables, screenshots, or documentation.
+
+Use a dedicated application database user with minimum required permissions. Use a more privileged account only for controlled administrative setup.
+
+Inspect the actual database service or PDB and explain how to confirm the correct connection details.
+
+Provide clear troubleshooting steps for connection errors, insufficient privileges, missing tables, invalid objects, port conflicts, and frontend/backend connectivity problems.
+
+---
+
+### 19. Documentation and ER diagram
+
+Update the ER diagram so it agrees with the actual implemented schema.
+
+Show:
+
+- All final entities.
+- Correct relationship cardinalities.
+- Primary keys and foreign keys.
+- SALE_ITEM and STOCK_RECEIPT_ITEM.
+- The inventory quantity addition.
+- Important relationship attributes.
+
+Provide a data dictionary containing each table's purpose, columns, keys, constraints, and relationships.
+
+Create a design-change log showing:
+
+- Original design.
+- Corrected design.
+- Reason for the change.
+- Impact on SQL, API, and UI.
+- Any remaining limitation.
+
+Do not draw a diagram that disagrees with the DDL.
+
+If creating screenshots for the report, capture actual application or SQL*Plus results where possible. Do not use fabricated terminal outputs.
+
+---
+
+### 20. Project structure and implementation workflow
+
+Create a maintainable project structure similar to:
+
+smart-grocery-system/
+- frontend/
+- backend/
+- oracle/
+- tests/
+- docs/
+- screenshots/
+- README.md
+- .gitignore
+- .env.example
+
+Organize SQL scripts and test files clearly. Adjust the structure when necessary, but explain the final arrangement.
+
+Develop in the following sequence.
+
+**Phase 1 — Audit and schema design**
+
+Inspect the materials, document contradictions, finalize the relational mapping, and define business rules.
+
+**Gate:** Every ER relationship has a valid relational implementation, every table has defined keys and constraints, and all schema changes are documented.
+
+**Phase 2 — Oracle implementation**
+
+Create the schema, seed data, views, PL/SQL objects, security roles, indexes, and verification scripts.
+
+**Gate:** SQL*Plus creation and verification scripts execute correctly in the available Oracle environment, or every unverified step is clearly identified.
+
+**Phase 3 — Core database workflows**
+
+Implement and test sale processing, payment recording, stock receipt processing, inventory updates, and transaction rollback.
+
+**Gate:** Business calculations and stored records agree, failed workflows are safe, and concurrency-sensitive inventory updates are protected.
+
+**Phase 4 — Backend implementation**
+
+Build the database connection layer, API endpoints, validation, error handling, and transaction boundaries.
+
+**Gate:** Core API operations return consistent results and use persisted Oracle data.
+
+**Phase 5 — Frontend implementation**
+
+Build the dashboard, management forms, checkout, reports, and other required screens.
+
+**Gate:** The UI performs real API operations and reflects database changes.
+
+**Phase 6 — Testing and security**
+
+Execute the test suite, verify permissions, inspect query plans, and correct errors.
+
+**Gate:** Report actual test results and unresolved issues honestly.
+
+**Phase 7 — Documentation and demonstration**
+
+Finalize setup instructions, the ER diagram, data dictionary, SQL demonstration script, and project README.
+
+**Gate:** A fresh setup can be followed using the documented steps without relying on undocumented manual changes.
+
+Do not stop after producing a plan or file structure. Continue implementing each phase in the available workspace and fix errors before proceeding.
+
+If a phase cannot be fully tested because the local Oracle service is unavailable, complete the applicable code and scripts, mark the limitation, and provide exact verification steps.
+
+---
+
+### 21. README and Windows execution instructions
+
+Provide a complete README with exact commands for my environment.
+
+Include:
+
+1. Required software and compatibility checks.
+2. How to verify that Oracle is running.
+3. How to connect using SQL*Plus.
+4. How to select the correct schema and database service.
+5. Which scripts to execute first and in what order.
+6. How to verify tables, keys, constraints, views, PL/SQL objects, and indexes.
+7. How to configure the backend environment.
+8. How to install dependencies.
+9. How to start the backend.
+10. How to start the frontend in a separate terminal.
+11. How to verify that the backend can query Oracle.
+12. How to test a complete sale.
+13. How to test payment and stock receipt processing.
+14. How to execute database tests and view outputs.
+15. How to reproduce the main reports.
+16. How to diagnose common connection and permission errors.
+
+Use actual project commands and file paths rather than generic examples that do not match the implementation.
+
+Explain which scripts require database administration privileges and which should run as the project schema owner.
+
+Do not use SYSTEM as the web application's connection account.
+
+---
+
+### 22. Final review before declaring completion
+
+Perform a final review of the entire implementation.
+
+Verify the following:
+
+- The ER diagram, schema, report, and application agree.
+- The two many-to-many relationships have correct junction tables.
+- Historical sale prices and stock receipt quantities are preserved.
+- Primary keys, foreign keys, constraints, and data types are correct.
+- Derived totals are computed consistently.
+- Sale and payment totals are not inflated by one-to-many joins.
+- Inventory cannot be oversold through normal concurrent operations.
+- A sale or receipt cannot be applied twice accidentally.
+- Failed operations do not leave partial records or incorrect stock.
+- Procedures, functions, triggers, and cursors compile and work.
+- The required SQL query categories are demonstrated.
+- GRANT, REVOKE, and least-privilege tests are included.
+- The application uses Oracle as the persistent data store.
+- The frontend contains no hardcoded production data.
+- All important screens and API endpoints perform real operations.
+- SQL*Plus scripts and startup instructions match the delivered files.
+- Security credentials are not exposed.
+- Expected outputs are clearly distinguished from actual execution results.
+- Known limitations and environment-dependent checks are documented.
+
+Correct discovered errors rather than merely listing them.
+
+Do not mark the project as complete while a known critical database error remains unaddressed.
+
+### 23. Required final deliverables
+
+At the end, provide:
+
+1. Original-design audit and discrepancy list.
+2. Explanation of the corrected relational design.
+3. Final architecture and technology stack.
+4. Final table list and ER relationships.
+5. Complete source code and project file tree.
+6. Oracle SQL*Plus scripts and execution order.
+7. Backend API documentation.
+8. Frontend feature summary.
+9. PL/SQL object summary.
+10. Database-security implementation and demonstration steps.
+11. SQL query coverage.
+12. Test cases with actual results where run.
+13. Exact Windows startup commands.
+14. README and troubleshooting guide.
+15. Updated ER diagram and design-change log.
+16. Known limitations and unverified items.
+17. A demonstration sequence for my database teacher.
+
+The demonstration should show actual database operations, not just screen navigation. Include schema verification, one successful sale, a failed transaction with rollback, inventory change, a payment summary, one advanced query, a trigger demonstration, and a least-privilege security test.
+
+**FINAL PRIORITY:** Database correctness comes first. Frontend appearance comes second. Every relationship must be represented correctly, every business transaction must preserve data integrity, every database object must be tested where possible, and every claim of successful execution must be supported by evidence. Preserve correct existing work, explain necessary changes, implement the complete project, and never hide errors or fabricate results.

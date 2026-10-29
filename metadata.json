@@ -1,0 +1,8 @@
+{
+  "name": "Remix Smart Grocery Retail Management and Payment System",
+  "description": "Enterprise Oracle Database management and point-of-sale retail system with ACID transactions, 11-table 3NF schema, PL/SQL engine, interactive SQL studio, and analytical reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
