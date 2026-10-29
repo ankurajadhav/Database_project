@@ -193,7 +193,7 @@ function getInitialData() {
   };
 }
 
-class OracleTransactionalDatabase {
+export class OracleTransactionalDatabase {
   private data = getInitialData();
   private isLocked = false;
   private inventoryLocks = new Set<number>();
@@ -234,6 +234,27 @@ class OracleTransactionalDatabase {
     this.inTransaction = false;
     this.snapshot = null;
     this.inventoryLocks.clear();
+  }
+
+  public exportState(): string {
+    return JSON.stringify(this.data);
+  }
+
+  public importState(serialized: string): void {
+    const parsed = JSON.parse(serialized);
+    if (
+      parsed &&
+      Array.isArray(parsed.customers) &&
+      Array.isArray(parsed.clerks) &&
+      Array.isArray(parsed.categories) &&
+      Array.isArray(parsed.products) &&
+      Array.isArray(parsed.sales)
+    ) {
+      this.data = parsed;
+      this.inTransaction = false;
+      this.snapshot = null;
+      this.inventoryLocks.clear();
+    }
   }
 
   // --- CUSTOMER OPS ---

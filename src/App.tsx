@@ -63,37 +63,23 @@ export default function App() {
   const [stockReceipts, setStockReceipts] = useState<StockReceipt[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Fetch all database records from Express API
+  // Fetch all database records atomically from Express / Serverless API
   const refreshDatabase = async () => {
     try {
-      const [
-        statsRes,
-        prodRes,
-        custRes,
-        clerkRes,
-        catRes,
-        salesRes,
-        suppRes,
-        rcptRes
-      ] = await Promise.all([
-        fetch('/api/dashboard/stats').then(r => r.json()),
-        fetch('/api/products').then(r => r.json()),
-        fetch('/api/customers').then(r => r.json()),
-        fetch('/api/clerks').then(r => r.json()),
-        fetch('/api/categories').then(r => r.json()),
-        fetch('/api/sales').then(r => r.json()),
-        fetch('/api/suppliers').then(r => r.json()),
-        fetch('/api/stock-receipts').then(r => r.json()),
-      ]);
+      const res = await fetch('/api/bootstrap');
+      if (!res.ok) {
+        throw new Error(`API bootstrap failed with status ${res.status}`);
+      }
+      const payload = await res.json();
 
-      setStats(statsRes);
-      setProducts(prodRes);
-      setCustomers(custRes);
-      setClerks(clerkRes);
-      setCategories(catRes);
-      setSales(salesRes);
-      setSuppliers(suppRes);
-      setStockReceipts(rcptRes);
+      setStats(payload.stats);
+      setProducts(payload.products);
+      setCustomers(payload.customers);
+      setClerks(payload.clerks);
+      setCategories(payload.categories);
+      setSales(payload.sales);
+      setSuppliers(payload.suppliers);
+      setStockReceipts(payload.stockReceipts);
     } catch (err) {
       console.error('Failed to load database records:', err);
     } finally {

@@ -26,7 +26,25 @@ apiRouter.get('/health', (_req: Request, res: Response) => {
   });
 });
 
-// 2. Dashboard Statistics & KPI Metrics
+// 2. Dashboard Statistics & KPI Metrics + Atomic Bootstrap Payload
+apiRouter.get('/bootstrap', (_req: Request, res: Response) => {
+  try {
+    res.json({
+      stats: db.getDashboardStats(),
+      products: db.getProducts(),
+      customers: db.getCustomers(),
+      clerks: db.getClerks(),
+      categories: db.getCategories(),
+      sales: db.getSales(),
+      suppliers: db.getSuppliers(),
+      stockReceipts: db.getStockReceipts()
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
+  }
+});
+
 apiRouter.get('/dashboard/stats', (_req: Request, res: Response) => {
   try {
     const stats = db.getDashboardStats();
